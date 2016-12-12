@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>test</title>
+  <style>
+    html,body {
+      width: 100%;
+    }
+    .color-btn {
+      border:1px solid #666;
+      padding:10px;
+      display:inline-block;
+    }
+    .color-elem-wrap {
+      overflow: hidden;
+    }
+    .color-elem {
+      float: left;
+      border:none;
+      padding:10px;
+      height:100px;
+      list-style-type: none;
+    }
+    .color-elem-text {
+      margin: 0;
+      padding: 0 4px;
+      background-color: white;
+      font-size: 14px;
+    }
+  </style>
+
+</head>
+<body>
+<h3>HSLベースでスキーマを作るよ！</h3>
+始点<input type="text" id="js-inputStart" placeholder="#は入力しないでね" max-length="6" min-length="6" value="B4EED8">
+終点<input type="text" id="js-inputEnd" placeholder="#は入力しないでね" max-length="6" min-length="6" value="111111">
+ステップ数<input type="text" id="js-inputStep" placeholder="何段階？" value="20">
+<div id="js-colorElems"></div>
+<input id="js-inputBtn" type="submit" value="get scheme">
+
+
+<script>
+    (function(){
+
+      var rgb16ToHsl = function(red, green, blue) {
+        var result = false;
+        if (((red || red === 0) && String(red).match(/^[0-9a-f]{2}$/i)) && ((green || green === 0) && String(green).match(/^[0-9a-f]{2}$/i)) && ((blue || blue === 0) && String(blue).match(/^[0-9a-f]{2}$/i))) {
+            var hue        = 0,
+                saturation = 0,
+                lightness  = 0,
+                max        = 0,
+                min        = 0,
+                diff       = 0;
+            red       = parseInt(red,   16) / 255;
+            green     = parseInt(green, 16) / 255;
+            blue      = parseInt(blue,  16) / 255;
+            max       = Math.max(red, green, blue);
+            min       = Math.min(red, green, blue);
+            lightness = (max + min) / 2;
+            if (max !== min) {
+                diff = max - min;
+                if (lightness > 0.5) {
+                    saturation = diff / (2 - max - min);
+                } else {
+                    saturation = diff / (max + min);
+                }
+                if (max === red) {
+                    hue = (green - blue) / diff;
+                } else if (max === green) {
+                    hue = 2 + (blue - red) / diff;
+                } else {
+                    hue = 4 + (red - green) / diff;
+                }
+                hue /= 6;
+            }
+            result = {
+                hue        : Math.round(hue        * 360),
+                saturation : Math.round(saturation * 100),
+                lightness  : Math.round(lightness  * 100)
+            };
+        }
+        return result;
+      };
+
+      var hslToRgb16 = function(hue, saturation, lightness) {
+        var result = false;
+        if (((hue || hue === 0) && hue <= 360) && ((saturation || saturation === 0) && saturation <= 100) && ((lightness || lightness === 0) && lightness <= 100)) {
+            var red   = 0,
+                green = 0,
+                blue  = 0,
+                q     = 0,
+                p     = 0;
+            hue        = Number(hue)        / 360;
+            saturation = Number(saturation) / 100;
+            lightness  = Number(lightness)  / 100;
+            if (saturation === 0) {
+                red   = lightness;
+                green = lightness;
+                blue  = lightness;
+            } else {
+                var hueToRgb = function(p, q, t) {
+                    if (t < 0) {
+                        t += 1;
+                    }
+                    if (t > 1) {
+                        t -= 1;
+                    }
+                    if (t < 1 / 6) {
+                        p += (q - p) * 6 * t;
+                    } else if (t < 1 / 2) {
+                        p = q;
+                    } else if (t < 2 / 3) {
+                        p += (q - p) * (2 / 3 - t) * 6;
+                    }
+                    return p;
+                };
+                if (lightness < 0.5) {
+                    q = lightness * (1 + saturation);
+                } else {
+                    q = lightness + saturation - lightness * saturation;
+                }
+                p = 2 * lightness - q;
+                red   = hueToRgb(p, q, hue + 1 / 3);
+                green = hueToRgb(p, q, hue);
+                blue  = hueToRgb(p, q, hue - 1 / 3);
+            }
+            result = {
+                red   : Math.round(red   * 255).toString(16),
+                green : Math.round(green * 255).toString(16),
+                blue  : Math.round(blue  * 255).toString(16)
+            };
+          }
+          return result;
+        };
+
+      var colorInputStart = document.getElementById('js-inputStart');
+      var colorInputEnd   = document.getElementById('js-inputEnd');
+      var colorInputStep  = document.getElementById('js-inputStep');
+      var colorInputBtn   = document.getElementById('js-inputBtn');
+      var colorBox        = document.getElementById('js-colorBox');
+      var colorElems      = document.getElementById('js-colorElems');
+
+      var getLightness = function(color16){
+        var color16Val = color16.value;
+        var color16Arr = [
+          color16Val.substr(0, 2),
+          color16Val.substr(2, 2),
+          color16Val.substr(4, 2)
+        ]
+        var colorHSL   = rgb16ToHsl(
+          color16Arr[0],
+          color16Arr[1],
+          color16Arr[2]
+        );
+        return colorHSL.lightness;
+      };
+
+      var getHue = function(color16){
+        var color16Val = color16.value;
+        var color16Arr = [
+          color16Val.substr(0, 2),
+          color16Val.substr(2, 2),
+          color16Val.substr(4, 2)
+        ]
+        var colorHSL   = rgb16ToHsl(
+          color16Arr[0],
+          color16Arr[1],
+          color16Arr[2]
+        );
+        return colorHSL.hue;
+      };
+
+      var getSaturation = function(color16){
+        var color16Val = color16.value;
+        var color16Arr = [
+          color16Val.substr(0, 2),
+          color16Val.substr(2, 2),
+          color16Val.substr(4, 2)
+        ]
+        var colorHSL   = rgb16ToHsl(
+          color16Arr[0],
+          color16Arr[1],
+          color16Arr[2]
+        );
+        return colorHSL.saturation;
+      };
+
+      var getHSLObj = function(color16){
+        var color16Val = color16.value;
+        var color16Arr = [
+          color16Val.substr(0, 2),
+          color16Val.substr(2, 2),
+          color16Val.substr(4, 2)
+        ]
+        var colorHSL   = rgb16ToHsl(
+          color16Arr[0],
+          color16Arr[1],
+          color16Arr[2]
+        );
+        return colorHSL;
+      };
+
+      var getLightnessSchemeArr = function(start, end, stepNum){
+        var schemeArr = [];
+        var stepRange = Math.floor((end - start) / (stepNum - 1) * 10) / 10;
+        for (var i = 0; i < (stepNum - 1); i++) {
+          schemeArr.push(start + Math.ceil((i * stepRange)));
+        }
+        schemeArr.push(end);
+        return schemeArr;
+      };
+
+      var getHSLObjArr = function(startObj, endObj, stepNum){
+        var schemeArr = [];
+        var stepHueRange = Math.floor((endObj.hue - startObj.hue) / (stepNum - 1) * 10) / 10;
+        var stepSaturationRange = Math.floor((endObj.saturation - startObj.saturation) / (stepNum - 1) * 10) / 10;
+        var stepLightnessRange = Math.floor((endObj.lightness - startObj.lightness) / (stepNum - 1) * 10) / 10;
+        for (var i = 0; i < (stepNum - 1); i++) {
+          var hslObj = {};
+          hslObj.hue = startObj.hue + Math.ceil((i * stepHueRange));
+          hslObj.saturation = startObj.saturation + Math.ceil((i * stepSaturationRange));
+          hslObj.lightness = startObj.lightness + Math.ceil((i * stepLightnessRange));
+          schemeArr.push(hslObj);
+        }
+        schemeArr.push(endObj);
+        return schemeArr;
+      };
+
+      var getRGB16Arr = function(start, end, arr, stepNum){
+        var rgbArr = [];
+        rgbArr.push(start);
+        for (var i = 1; i < (stepNum - 1); i++) {
+          var value = hslToRgb16(0, 0, arr[i]).red + hslToRgb16(0, 0, arr[i]).green + hslToRgb16(0, 0, arr[i]).blue;
+          rgbArr.push(value);
+        }
+        rgbArr.push(end);
+        return rgbArr;
+      };
+
+      var getRGB16ObjArrFromHSLObj = function(start, end, arrObj, stepNum){
+        var rgbArr = [];
+        rgbArr.push(start);
+        for (var i = 1; i < (stepNum - 1); i++) {
+          var value = hslToRgb16(arrObj[i].hue, arrObj[i].saturation, arrObj[i].lightness).red +
+            hslToRgb16(arrObj[i].hue, arrObj[i].saturation, arrObj[i].lightness).green +
+            hslToRgb16(arrObj[i].hue, arrObj[i].saturation, arrObj[i].lightness).blue;
+          rgbArr.push(value);
+        }
+        rgbArr.push(end);
+        return rgbArr;
+      };
+
+      var deleteColorScheme = function(elems){
+        for (var i = elems.childNodes.length - 1; i >= 0; i--) {
+          elems.removeChild(elems.childNodes[i]);
+        }
+      };
+
+      var getHSLSchemeElem = function(HSLObjArr, rgbArr, stepNum){
+        var wrapElem = document.createElement('ul');
+        wrapElem.classList.add('color-elem-wrap');
+        for (var i = 0; i < stepNum; i++) {
+          var elem = document.createElement('li');
+          elem.classList.add('color-elem');
+          elem.style.backgroundColor = "hsl(" + HSLObjArr[i].hue + "," + HSLObjArr[i].saturation + "%," + HSLObjArr[i].lightness + "%)";
+          var elemText = document.createElement('p');
+          elemText.textContent = '#' + rgbArr[i];
+          elemText.classList.add('color-elem-text');
+          var elemText2 = document.createElement('p');
+          elemText2.textContent = "hsl(" + HSLObjArr[i].hue + "," + HSLObjArr[i].saturation + "%," + HSLObjArr[i].lightness + "%)";
+          elemText2.classList.add('color-elem-text');
+          elem.appendChild(elemText);
+          elem.appendChild(elemText2);
+          wrapElem.appendChild(elem);
+        }
+        return wrapElem;
+      };
+
+      var getSchemeElem = function(HSLArr, RGBArr, stepNum){
+        var wrapElem = document.createElement('ul');
+        wrapElem.classList.add('color-elem-wrap');
+        for (var i = 0; i < stepNum; i++) {
+          var elem = document.createElement('li');
+          elem.classList.add('color-elem');
+          elem.style.backgroundColor = "hsl(0,0%," + HSLArr[i] + "%)";
+          var elemText = document.createElement('p');
+          elemText.textContent = '#' + RGBArr[i];
+          elemText.classList.add('color-elem-text');
+          var elemText2 = document.createElement('p');
+          elemText2.textContent = "hsl(0,0%," + HSLArr[i] + "%)";
+          elemText2.classList.add('color-elem-text');
+          elem.appendChild(elemText);
+          elem.appendChild(elemText2);
+          wrapElem.appendChild(elem);
+        }
+        return wrapElem;
+      };
+
+      colorInputBtn.addEventListener('click', function(){
+        var startValue = document.getElementById('js-inputStart');
+        var endValue = document.getElementById('js-inputEnd');
+        var schemeStep = parseInt(document.getElementById('js-inputStep').value, 10);
+
+        var startValueObj = getHSLObj(startValue);
+        var endValueObj = getHSLObj(endValue);
+        var HSLObjArr = getHSLObjArr(startValueObj, endValueObj, schemeStep);
+        var RGBArr = getRGB16ObjArrFromHSLObj(startValue.value, endValue.value, HSLObjArr, schemeStep);
+        deleteColorScheme(colorElems);
+        colorElems.appendChild(getHSLSchemeElem(HSLObjArr, RGBArr, schemeStep));
+      }, false);
+
+    })();
+
+</script>
+
+
+</body>
+</html>
